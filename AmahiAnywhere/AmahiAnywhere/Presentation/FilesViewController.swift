@@ -9,12 +9,13 @@
 import UIKit
 import Lightbox
 
-class FilesViewController: BaseUIViewController, UITableViewDelegate, UITableViewDataSource {
+class FilesViewController: BaseUIViewController, UITableViewDelegate, UITableViewDataSource, UISearchBarDelegate {
     
     public var directory: ServerFile?
     public var share: ServerShare!
     
     private var serverFiles: [ServerFile] = [ServerFile]()
+    private var filteredFiles: [ServerFile] = [ServerFile]()
     private var presenter: FilesPresenter!
     var refreshControl: UIRefreshControl!
     
@@ -32,6 +33,8 @@ class FilesViewController: BaseUIViewController, UITableViewDelegate, UITableVie
         self.refreshControl?.addTarget(self, action: #selector(handleRefresh), for: UIControlEvents.valueChanged)
         filesTableView.addSubview(refreshControl)
         
+        self.navigationItem.title = getTitle()
+        
         presenter.getFiles(share, directory: directory)
     }
 
@@ -43,28 +46,35 @@ class FilesViewController: BaseUIViewController, UITableViewDelegate, UITableVie
         presenter.getFiles(share, directory: directory)
     }
     
-    // MARK: - File sorting functionality
+    func getTitle() -> String? {
+        if directory != nil {
+            return directory!.name
+        }
+        return share!.name
+    }
+    
+    // MARK: - File sorting and searching functionality
     
     @IBAction func onSortChange(_ sender: UISegmentedControl) {
         fileSort = sender.selectedSegmentIndex == 0 ? FileSort.ModifiedTime : FileSort.Name
         presenter.reorderFiles(files: serverFiles, sortOrder: fileSort)
     }
+    
+    func searchBar(_ searchBar: UISearchBar, textDidChange searchText: String) {
+        presenter.filterFiles(searchText, files: serverFiles)
+    }
 
     // MARK: - Table view data source
 
-    func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
-        if directory != nil {
-            return directory?.name
-        }
-        return share.name
-    }
+//    func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
+//    }
     
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        return serverFiles.count
+        return filteredFiles.count
     }
 
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        let serverFile = serverFiles[indexPath.row]
+        let serverFile = filteredFiles[indexPath.row]
         if serverFile.isDirectory() {
             let cell = tableView.dequeueReusableCell(withIdentifier: "ServerDirectoryTableViewCell", for: indexPath)
             cell.textLabel?.text = serverFile.name
@@ -79,7 +89,7 @@ class FilesViewController: BaseUIViewController, UITableViewDelegate, UITableVie
     }
     
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
-        presenter.handleFileOpening(fileIndex: indexPath.row, files: serverFiles)
+        presenter.handleFileOpening(fileIndex: indexPath.row, files: filteredFiles)
         tableView.deselectRow(at: indexPath, animated: true)
     }
 
@@ -88,7 +98,7 @@ class FilesViewController: BaseUIViewController, UITableViewDelegate, UITableVie
     override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
         let vc: FilesViewController = segue.destination as! FilesViewController
         vc.share = self.share
-        vc.directory = serverFiles[(filesTableView.indexPathForSelectedRow?.row)!]
+        vc.directory = filteredFiles[(filesTableView.indexPathForSelectedRow?.row)!]
     }
 }
 
@@ -107,8 +117,12 @@ extension FilesViewController: FilesView {
         self.present(controller, animated: true)
     }
     
-    func updateFiles(files: [ServerFile]) {
+    func initFiles(_ files: [ServerFile]) {
         self.serverFiles = files
+    }
+    
+    func updateFiles(_ files: [ServerFile]) {
+        self.filteredFiles = files
         filesTableView.reloadData()
     }
     
