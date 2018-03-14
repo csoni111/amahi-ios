@@ -41,7 +41,21 @@ class FilesPresenter: BasePresenter {
                 return
             }
             
-            self.view?.updateFiles(files: serverFiles)
+            self.view?.updateFiles(files: serverFiles.sorted(by: ServerFile.lastModifiedSorter))
+        }
+    }
+    
+    func reorderFiles(files: [ServerFile], sortOrder: FileSort) {
+        let sortedFiles = files.sorted(by: getSorter(sortOrder))
+        self.view?.updateFiles(files: sortedFiles)
+    }
+    
+    private func getSorter(_ sortOrder: FileSort) -> ((ServerFile, ServerFile) -> Bool) {
+        switch sortOrder {
+        case .ModifiedTime:
+            return ServerFile.lastModifiedSorter
+        case .Name:
+            return ServerFile.nameSorter
         }
     }
     
@@ -79,3 +93,5 @@ class FilesPresenter: BasePresenter {
         return images
     }
 }
+
+
